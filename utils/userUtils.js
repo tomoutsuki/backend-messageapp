@@ -13,6 +13,7 @@ module.exports = {
 	findByEmail: async (email) => {
 		const db = getDatabase();
 		const user = await db.collection("users").findOne({ email });
+		if (!user) return null;
 		userClass = new User(user);
 		return userClass;
 	},

@@ -1,4 +1,5 @@
 const { MongoClient } = require("mongodb");
+const logger = require("../utils/logger");
 require("dotenv").config();
 
 const uri = process.env.MONGODB_URI;
@@ -12,8 +13,11 @@ async function connect() {
     await client.connect();
     database = client.db("App");
     console.log("conectado!");
+    logger.logInfo("Conexão com banco de dados.");
+    
   } catch (error) {
     console.error(error);
+    logger.logError(error);
     process.exit(1);
   }
 }

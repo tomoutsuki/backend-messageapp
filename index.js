@@ -8,6 +8,7 @@ const Chat = require("./classes/Chat.js");
 
 const { showLogo } = require("./misc/logo.js");
 const { createOrLoadChat } = require("./classes/Chat.js");
+const logger = require("./utils/logger");
 
 let currentUser = null;
 let contactGroup = [];
@@ -31,42 +32,66 @@ async function loginFlow() {
 		async (email) => {
 			if (!validateEmail(email)) {
 				console.log("Email inválido.");
-				rl.close();
-				return;
+				process.exit(1);
 			}
-			const user = await findByEmail(email);
+			let user;
+			try {
+				user = await findByEmail(email);
+			} catch (error) {
+				logger.logError(error);
+				process.exit(1);
+			}
+			
 			if (!user) {
 				console.log("Usuário não encontrado.");
-				
 				await createConfirmation();
+				return;
 			}
 
 			currentUser = user;
-			console.log(currentUser);
 			await mainMenu();
 	});
 }
 
 async function createConfirmation() {
 	await sleep(100);
-	rl.question("Gostaria de cadastrar uma nova conta? (y/n): \n",
-		async (option) => {
-			switch (option) {
-				case "y":
-					await signUp();
-					break;
+	let option = await ask("Você não possui uma conta! Gostaria de realizar o cadastro? (y/n) >>> ");
+	switch (option) {
+		case "y":
+			await signUp();
+			break;
 
-				case "n":
-				default:
-					rl.close();
-					return;
-			}
-		}
-	);
+		case "n":
+		default:
+			process.exit(0);
+	}
 }
 
 async function signUp() {
-
+	let name = await ask("Digite o seu nome >>> ");
+	let email = await ask("Digite o seu email >>> ");
+	if (!validateEmail(email)) {
+		console.log("Email inválido!");
+		process.exit(0);
+	}
+	let passwordHash = "TESTHASH";
+	let profilePictureUrl = "tetsturl.com";
+	let status = "Available";
+	let contacts = [];
+	
+	let user = new User({
+		name,
+		email,
+		passwordHash,
+		profilePictureUrl,
+		status,
+		contacts,
+	});
+	await user.save();
+	currentUser = user;
+	console.log("Usuário criado com sucesso!");
+	logger.logInfo(`Criação de conta por usuário ${name}.`);
+	process.exit(0);
 }
 
 async function mainMenu() {
@@ -84,12 +109,10 @@ async function mainMenu() {
 					await newChat();
 					break;
 				case "3":
-					rl.close();
-					return;
+					process.exit(0);
 				default:
 					console.log("Escolha uma opção válida.");
-					rl.close();
-					return;
+					process.exit(0);
 			}
 		}
 	)
@@ -102,13 +125,23 @@ async function newChat() {
 		async (email) => {
 			if (email == "!voltar") await mainMenu();
 
-			const user = await findByEmail(email);
+			let user;
+
+			try {
+				user = await findByEmail(email);
+			} catch (error) {
+				logger.logError(error);
+				console.log("Erro ao buscar usuário por email.")
+				process.exit(1);
+			}
+
 			if (!user) {
+				logger.logError("Tentativa de login sem sucesso: usuário não encontrado.");
 				console.log("Usuário não encontrado.");
-				rl.close();
-				await mainMenu();
+				process.exit(1);
 			}
 			console.log(user);
+			console.log(currentUser);
 			await currentUser.addContact(user);
 			await openChat();
 		}
@@ -192,6 +225,7 @@ async function displayChat(chat) {
 }
 
 async function main() {
+	logger.logInfo("Aplicação iniciada.");
 	showLogo();
 	await connect();
 	await loginFlow();
