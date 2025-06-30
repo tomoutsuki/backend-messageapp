@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+	<meta charset="UTF-8" />
+	<title>Chat</title>
+	<link rel="stylesheet" href="/static/css/reset.css">
+	<link rel="stylesheet" href="/static/css/chat.css">
+</head>
+<body>
+	<main class="chat-wrapper">
+		<aside class="sidebar">
+			<h3>Contatos</h3>
+			<form id="contact-form" class="contact-forms">
+				<input type="email" name="email" id="email-input" placeholder="Email do novo contato" required />
+				<button type="submit" class="add-contact-button">Adicionar novo contato</button>
+			</form>
+
+			<ul id="contact-list">
+				<!-- Carregar contatos dinamicamente -->
+			</ul>
+			<button id="logout-button">Logout</button>
+		</aside>
+		<section class="chat-area">
+			<h3 id="chat-header">Chat</h3>
+			<article class="messages" id="messages">
+				<!-- Mensagens serão exibidas aqui -->
+			</article>
+			<form id="chat-form" class="chat-forms">
+				<input type="text" name="message" id="message-input" placeholder="Digite sua mensagem..." required />
+				<button type="submit">Enviar</button>
+			</form>
+
+			<button id="delete-contact-button">Excluir contato</button>
+		</section>
+	</main>
+
+	<script>
+		let currentContactId = null;
+		let currentChatId = null; 
+
+		async function loadContacts() {
+			const response = await fetch('/contatos');
+			const contatos = await response.json();
+			const list = document.getElementById('contact-list');
+			list.innerHTML = '';
+
+			contatos.forEach(contato => {
+				const li = document.createElement('li');
+				li.textContent = contato.nome;
+				li.dataset.id = contato.id;
+				li.addEventListener('click', () => loadChat(contato));
+				list.appendChild(li);
+			});
+		}
+
+		async function loadChat(contato) {
+		try {
+			document.getElementById('delete-contact-button').style.display = 'inline-block';
+			const startResponse = await fetch(`/chats/start/${contato.id}`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' }
+			});
+
+			if (!startResponse.ok) throw new Error("Erro ao iniciar chat");
+
+				const chat = await startResponse.json();
+				const chatId = chat._id;
+				currentChatId = chat._id;
+
+				currentContactId = contato.id;
+				document.getElementById('chat-header').textContent = `Chat com ${contato.nome}`;
+
+				const messageResponse = await fetch(`/chats/${chatId}/messages`);
+
+
+			if (!messageResponse.ok) throw new Error("Erro ao carregar mensagens");
+
+				const mensagens = await messageResponse.json();
+
+				const msgContainer = document.getElementById('messages');
+				msgContainer.innerHTML = '';
+
+				console.log(mensagens);
+
+				mensagens.forEach(msg => {
+					const p = document.createElement('p');
+					const remetente = msg.senderName || 'Desconhecido';
+					const texto = msg.content;
+
+					p.innerHTML = `<strong>${remetente}:</strong> ${texto}`;
+					msgContainer.appendChild(p);
+				});
+
+
+			} catch (error) {
+					console.error("Erro ao carregar o chat:", error);
+			}
+		}
+
+		document.getElementById('contact-form').addEventListener('submit', async (e) => {
+			e.preventDefault();
+			const emailInput = document.getElementById('email-input');
+			const email = emailInput.value;
+			const response = await fetch('/contatos', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ email })
+			});
+
+			if (response.ok) {
+				emailInput.value = '';
+				loadContacts();
+			} else {
+				alert("Erro ao adicionar contato.");
+			}
+		});
+
+		document.getElementById('chat-form').addEventListener('submit', async (e) => {
+			e.preventDefault();
+
+			const input = document.getElementById('message-input');
+			const texto = input.value;
+
+			if (!currentChatId) return alert("Nenhum chat selecionado!");
+
+			console.log(texto);
+			const response = await fetch(`/chats/${currentChatId}/messages`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ message: texto })
+			});
+
+			if (response.ok) {
+				input.value = '';
+				// recarrega as mensagens após o envio
+				loadChat({ id: currentContactId, nome: document.getElementById('chat-header').textContent.replace('Chat com ', '') });
+			} else {
+				alert("Erro ao enviar mensagem.");
+			}
+		});
+
+		loadContacts();
+
+		document.getElementById('delete-contact-button').addEventListener('click', async () => {
+			if (!currentContactId) return alert("Nenhum contato selecionado para exclusão.");
+
+			const confirmDelete = confirm("Tem certeza que deseja excluir este contato?");
+			if (!confirmDelete) return;
+
+			try {
+				const response = await fetch(`/contatos/${currentContactId}`, {
+					method: 'DELETE'
+				});
+
+				if (!response.ok) {
+					const msg = await response.text();
+					throw new Error(`Erro ao excluir contato: ${msg}`);
+				}
+
+				alert("Contato excluído com sucesso.");
+				currentContactId = null;
+				currentChatId = null;
+				document.getElementById('chat-header').textContent = "Chat";
+				document.getElementById('messages').innerHTML = '';
+				document.getElementById('delete-contact-button').style.display = 'none';
+				loadContacts();
+
+			} catch (error) {
+				console.log(error);
+				alert("Erro ao excluir contato.");
+			}
+		});
+
+		document.getElementById('logout-button').addEventListener('click', async () => {
+			try {
+				const response = await fetch('/auth/logout', {
+					method: 'POST'
+				});
+
+				if (response.ok) {
+					// Redireciona para a página de login
+					window.location.href = '/pages/login';
+				} else {
+					alert("Erro ao fazer logout.");
+				}
+			} catch (error) {
+				console.error("Erro no logout:", error);
+				alert("Erro ao fazer logout.");
+			}
+		});
+	</script>
+</body>
+</html>

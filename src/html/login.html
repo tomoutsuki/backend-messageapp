@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>Chatter - Login</title>
+  <link rel="stylesheet" href="/static/css/reset.css">
+  <link rel="stylesheet" href="/static/css/login.css">
+</head>
+<body>
+  <div class="login-container">
+    <h2>Login</h2>
+    <form action="/auth/login" method="POST">
+      <input type="text" name="email" placeholder="Email" required />
+      <input type="password" name="password" placeholder="Senha" required />
+      <button type="submit">Entrar</button>
+    </form>
+    <p>Não tem uma conta? <a href="/pages/register">Cadastre-se</a>.</p>
+  </div>
+</body>
+</html>
